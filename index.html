@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clasificación de Animales</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #resultado {
+            font-weight: bold;
+            font-size: 2rem;
+            text-align: center;
+        }
+        #canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="container text-center mt-5">
+            <h1>Clasificación de Animales</h1>
+            <p>Usando la cámara web para predecir: Perro, Gato, Cebra, Conejo, Caballo</p>
+
+            <div class="my-3">
+                <video id="video" width="400" autoplay playsinline></video>
+                <canvas id="canvas" width="128" height="128"></canvas>
+            </div>
+
+            <button class="btn btn-primary" id="predict-button">Predecir</button>
+            <div id="resultado" class="mt-4"></div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script>
+        let model; // Declarar el modelo de manera global
+
+        async function loadModel() {
+            try {
+                console.log('Cargando modelo...');
+                model = await tf.loadLayersModel('./model/model.json');
+                console.log('Modelo cargado correctamente');
+            } catch (error) {
+                console.error('Error al cargar el modelo:', error);
+            }
+        }
+        
+        // Llamar a la función para cargar el modelo
+        loadModel();
+        
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const resultadoDiv = document.getElementById('resultado');
+        
+        // Mostrar la cámara web
+        async function setupCamera() {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 400, height: 400 },
+                audio: false
+            });
+            video.srcObject = stream;
+        }
+        
+        setupCamera();
+        
+        document.getElementById('predict-button').addEventListener('click', () => {
+            if (!model) {
+                alert('Modelo no cargado aún. Intenta nuevamente.');
+                return;
+            }
+        
+            // Dibujar el video en el canvas
+            ctx.drawImage(video, 0, 0, 128, 128);
+        
+            // Obtener imagen del canvas y procesar para la predicción
+            const imgData = tf.browser.fromPixels(canvas).toFloat().div(255.0);
+            const input = imgData.expandDims(0); // Añadir una dimensión para el batch
+        
+            // Hacer la predicción
+            model.predict(input).array().then(predicciones => {
+                const clases = ['Perro', 'Gato', 'Cebra', 'Conejo', 'Caballo'];
+                const indiceMax = predicciones[0].indexOf(Math.max(...predicciones[0]));
+                resultadoDiv.textContent = `Animal Detectado: ${clases[indiceMax]}`;
+            }).catch(error => {
+                console.error('Error en la predicción:', error);
+            });
+            
+        });
+    </script>
+</body>
+</html>
